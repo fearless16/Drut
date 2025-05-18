@@ -12,11 +12,15 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.76.1",
+    "add": "^2.0.6",
     "bootstrap": "^5.3.6",
+    "date-fns": "^4.1.0",
+    "localforage": "^1.10.0",
     "react": "^19.1.0",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.0"
+    "react-router-dom": "^7.6.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@eslint/css": "^0.7.0",

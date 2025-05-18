@@ -4,6 +4,14 @@ import { RequestBuilder } from '../src/components/RequestBuilder/RequestBuilder'
 import * as requestLib from '../src/lib/requestHandler'
 import React from 'react'
 
+const mockAddRequest = vi.fn()
+
+vi.mock('@/context/HistoryContext', () => ({
+  useHistoryContext: () => ({
+    addRequest: mockAddRequest,
+  }),
+}))
+
 describe('RequestBuilder', () => {
   it('renders all form components', () => {
     render(<RequestBuilder onResponse={() => {}} />)
@@ -20,10 +28,10 @@ describe('RequestBuilder', () => {
     expect(button).toBeDisabled()
   })
 
-  it('calls requestHandler with correct data', async () => {
+  it('calls requestHandler and adds request to history', async () => {
     const mockHandler = vi
       .spyOn(requestLib, 'requestHandler')
-      //@ts-expect-error other request params are not required
+      //@ts-expect-error mocking simplified
       .mockResolvedValue({ status: 200 })
 
     const handleResponse = vi.fn()
@@ -48,6 +56,12 @@ describe('RequestBuilder', () => {
       })
 
       expect(handleResponse).toHaveBeenCalledWith({ status: 200 })
+      expect(mockAddRequest).toHaveBeenCalledWith({
+        method: 'GET',
+        url: 'https://example.com',
+        headers: [],
+        body: '',
+      })
     })
   })
 })
