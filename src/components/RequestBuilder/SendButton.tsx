@@ -1,4 +1,5 @@
 import React from 'react'
+import { Button } from 'react-bootstrap'
 
 interface SendButtonProps {
   disabled?: boolean
@@ -12,13 +13,8 @@ export const SendButton: React.FC<SendButtonProps> = ({
   onClick,
 }) => {
   return (
-    <button
-      className="btn btn-primary"
-      type="button"
-      disabled={disabled || loading}
-      onClick={onClick}
-    >
+    <Button onClick={onClick} disabled={disabled || loading}>
       {loading ? 'Sending...' : 'Send Request'}
-    </button>
+    </Button>
   )
 }

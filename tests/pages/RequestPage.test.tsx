@@ -1,21 +1,29 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { RequestPage } from '../../src/pages/RequestPage'
+import { RequestPage } from '@/pages/RequestPage'
+import { HistoryProvider } from '@/context/HistoryContext'
 import React from 'react'
 
 describe('RequestPage', () => {
+  const setup = () =>
+    render(
+      <HistoryProvider>
+        <RequestPage />
+      </HistoryProvider>
+    )
+
   it('renders page heading', () => {
-    render(<RequestPage />)
+    setup()
     expect(screen.getByText('New API Request')).toBeInTheDocument()
   })
 
   it('shows RequestBuilder', () => {
-    render(<RequestPage />)
+    setup()
     expect(screen.getByText('Send Request')).toBeInTheDocument()
   })
 
   it('does not show ResponseViewer initially', () => {
-    render(<RequestPage />)
+    setup()
     expect(screen.queryByText(/Status/i)).not.toBeInTheDocument()
   })
 })

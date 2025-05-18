@@ -5,7 +5,8 @@ import { UrlInput } from './UrlInput'
 import { HeaderEditor } from './HeaderEditor'
 import { BodyEditor } from './BodyEditor'
 import { SendButton } from './SendButton'
-import { requestHandler } from '../../lib/requestHandler'
+import { requestHandler } from '@/lib/requestHandler'
+import { useHistoryContext } from '@/context/HistoryContext'
 
 interface RequestBuilderProps {
   onResponse: (res: any) => void
@@ -14,6 +15,7 @@ interface RequestBuilderProps {
 export const RequestBuilder: React.FC<RequestBuilderProps> = ({
   onResponse,
 }) => {
+  const { addRequest } = useHistoryContext()
   const {
     method,
     setMethod,
@@ -45,7 +47,15 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({
         headers,
         body,
       })
+
       onResponse(response)
+
+      await addRequest({
+        method,
+        url,
+        headers,
+        body,
+      })
     } catch (err: any) {
       setError(err.message || 'Unknown error')
     } finally {
