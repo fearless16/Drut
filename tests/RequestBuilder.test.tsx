@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { RequestBuilder } from '../src/components/RequestBuilder/RequestBuilder'
 import * as requestLib from '../src/lib/requestHandler'
 import React from 'react'
+import { EnvProvider } from '@/context/EnvContext'
 
 const mockAddRequest = vi.fn()
 
@@ -11,10 +12,11 @@ vi.mock('@/context/HistoryContext', () => ({
     addRequest: mockAddRequest,
   }),
 }))
+const wrapper = ({ children }: any) => <EnvProvider>{children}</EnvProvider>
 
 describe('RequestBuilder', () => {
   it('renders all form components', () => {
-    render(<RequestBuilder onResponse={() => {}} />)
+    render(<RequestBuilder onResponse={() => {}} />, { wrapper })
 
     expect(screen.getByLabelText('Request URL')).toBeInTheDocument()
     expect(screen.getByText('+ Add Header')).toBeInTheDocument()
@@ -22,7 +24,7 @@ describe('RequestBuilder', () => {
   })
 
   it('disables SendButton when URL is invalid', () => {
-    render(<RequestBuilder onResponse={() => {}} />)
+    render(<RequestBuilder onResponse={() => {}} />, { wrapper })
 
     const button = screen.getByText('Send Request') as HTMLButtonElement
     expect(button).toBeDisabled()
@@ -36,7 +38,7 @@ describe('RequestBuilder', () => {
 
     const handleResponse = vi.fn()
 
-    render(<RequestBuilder onResponse={handleResponse} />)
+    render(<RequestBuilder onResponse={handleResponse} />, { wrapper })
 
     fireEvent.change(screen.getByLabelText('Request URL'), {
       target: { value: 'https://example.com' },
