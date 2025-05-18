@@ -1,6 +1,7 @@
 import React from 'react'
 import { Navbar, Nav, Container } from 'react-bootstrap'
 import { NavLink } from 'react-router-dom'
+import { ThemeToggle } from './ThemeToggle'
 
 export const NavBar: React.FC = () => {
   return (
@@ -14,6 +15,9 @@ export const NavBar: React.FC = () => {
           <Nav.Link as={NavLink} to="/history">
             History
           </Nav.Link>
+          <Nav.Item as={NavLink} to="/history">
+            <ThemeToggle />
+          </Nav.Item>
         </Nav>
       </Container>
     </Navbar>
