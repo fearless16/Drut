@@ -7,6 +7,9 @@ import { BodyEditor } from './BodyEditor'
 import { SendButton } from './SendButton'
 import { requestHandler } from '@/lib/requestHandler'
 import { useHistoryContext } from '@/context/HistoryContext'
+import { EnvSelector } from '../Env/EnvSelector'
+import { useEnvContext } from '@/context/EnvContext'
+import { resolveEnvVars } from '@/lib/envResolver'
 
 interface RequestBuilderProps {
   onResponse: (res: any) => void
@@ -30,6 +33,7 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { selectedEnv } = useEnvContext()
 
   const handleSend = async () => {
     if (!isValid) {
@@ -41,11 +45,13 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({
     setError(null)
 
     try {
+      const resolvedUrl = resolveEnvVars(url, selectedEnv?.variables || [])
+      const resolvedBody = resolveEnvVars(body, selectedEnv?.variables || [])
       const response = await requestHandler({
         method,
-        url,
+        url: resolvedUrl,
         headers,
-        body,
+        body: resolvedBody,
       })
 
       onResponse(response)
@@ -65,6 +71,7 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({
 
   return (
     <div>
+      <EnvSelector />
       <MethodSelector method={method} onChange={setMethod} />
       <UrlInput url={url} onChange={setUrl} error={error || undefined} />
       <HeaderEditor headers={headers} onChange={setHeaders} />
