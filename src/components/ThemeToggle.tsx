@@ -3,11 +3,14 @@ import { Button } from 'react-bootstrap'
 import { useTheme } from '@/context/ThemeContext'
 
 export const ThemeToggle: React.FC = () => {
-  const { theme, toggleTheme } = useTheme()
+  const { toggleTheme, isDark } = useTheme()
+
+  const nextTheme = isDark ? 'Light' : 'Dark'
+  const variant = isDark ? 'outline-secondary' : 'outline-dark'
 
   return (
-    <Button variant="outline-secondary" onClick={toggleTheme}>
-      Switch to {theme === 'light' ? 'Dark' : 'Light'} Mode
+    <Button variant={variant} onClick={toggleTheme} size="sm">
+      Switch to {nextTheme} Mode
     </Button>
   )
 }

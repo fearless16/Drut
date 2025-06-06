@@ -1,4 +1,5 @@
 import React from 'react'
+import { Button, Card, Form, InputGroup, Stack } from 'react-bootstrap'
 
 export interface HeaderItem {
   key: string
@@ -34,37 +35,41 @@ export const HeaderEditor: React.FC<HeaderEditorProps> = ({
   }
 
   return (
-    <div className="mb-3">
-      <label className="form-label">Headers</label>
-      {headers.map((header, index) => (
-        <div className="d-flex gap-2 mb-2" key={index}>
-          <input
-            className="form-control"
-            placeholder="Key"
-            value={header.key}
-            onChange={(e) => updateHeader(index, 'key', e.target.value)}
-            aria-label={`Header key ${index}`}
-          />
-          <input
-            className="form-control"
-            placeholder="Value"
-            value={header.value}
-            onChange={(e) => updateHeader(index, 'value', e.target.value)}
-            aria-label={`Header value ${index}`}
-          />
-          <button
-            className="btn btn-danger"
-            type="button"
-            onClick={() => removeHeader(index)}
-            aria-label={`Remove header ${index}`}
-          >
-            ×
-          </button>
-        </div>
-      ))}
-      <button className="btn btn-secondary" type="button" onClick={addHeader}>
-        + Add Header
-      </button>
-    </div>
+    <Card className='p-2'>
+      <Form.Group className="mb-3">
+        <Form.Label>Headers</Form.Label>
+        <Stack gap={2}>
+          {headers.map((header, index) => (
+            <InputGroup key={index}>
+              <Form.Control
+                placeholder="Key"
+                value={header.key}
+                onChange={(e) => updateHeader(index, 'key', e.target.value)}
+                aria-label={`Header key ${index}`}
+              />
+              <Form.Control
+                placeholder="Value"
+                value={header.value}
+                onChange={(e) => updateHeader(index, 'value', e.target.value)}
+                aria-label={`Header value ${index}`}
+              />
+              <Button
+                variant="danger"
+                onClick={() => removeHeader(index)}
+                aria-label={`Remove header ${index}`}
+              >
+                ×
+              </Button>
+            </InputGroup>
+          ))}
+
+          <div>
+            <Button variant="secondary" onClick={addHeader}>
+              + Add Header
+            </Button>
+          </div>
+        </Stack>
+      </Form.Group>
+    </Card>
   )
 }
