@@ -1,4 +1,5 @@
 import React from 'react'
+import { Card, Badge } from 'react-bootstrap'
 
 interface ResponseViewerProps {
   response: {
@@ -8,6 +9,13 @@ interface ResponseViewerProps {
     headers?: Record<string, string>
     time?: number
   }
+}
+
+const getStatusVariant = (status: number) => {
+  if (status >= 200 && status < 300) return 'success'
+  if (status >= 400) return 'danger'
+  if (status >= 300 && status < 400) return 'warning'
+  return 'secondary'
 }
 
 export const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
@@ -20,24 +28,28 @@ export const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
   })()
 
   return (
-    <div className="card">
-      <div className="card-header d-flex justify-content-between align-items-center">
-        <strong>Status:</strong>
-        <span>
-          {response.status} {response.statusText || ''}
-        </span>
+    <Card className="my-3 shadow-sm">
+      <Card.Header className="d-flex justify-content-between align-items-center">
+        <div>
+          <strong>Status:</strong>{' '}
+          <Badge bg={getStatusVariant(response.status)}>
+            {response.status} {response.statusText || ''}
+          </Badge>
+        </div>
         {response.time && (
-          <span className="text-muted small">({response.time} ms)</span>
+          <small className="text-muted">
+            ⏱️ {response.time} ms
+          </small>
         )}
-      </div>
-      <div className="card-body">
+      </Card.Header>
+      <Card.Body>
         <pre
           className="bg-light p-3 rounded overflow-auto"
           style={{ maxHeight: 300 }}
         >
           {prettyBody}
         </pre>
-      </div>
-    </div>
+      </Card.Body>
+    </Card>
   )
 }

@@ -1,95 +1,125 @@
-import React, { useEffect, useState } from 'react'
-import { useRequestForm } from '@/hooks/useRequestForm'
-import { MethodSelector } from './MethodSelector'
-import { UrlInput } from './UrlInput'
-import { HeaderEditor } from './HeaderEditor'
-import { BodyEditor } from './BodyEditor'
-import { SendButton } from './SendButton'
+import React from 'react'
+import { Button, Form, Stack } from 'react-bootstrap'
 import { requestHandler } from '@/lib/requestHandler'
 import { useHistoryContext } from '@/context/HistoryContext'
-import { EnvSelector } from '../Env/EnvSelector'
-import { useEnvContext } from '@/context/EnvContext'
-import { resolveEnvVars } from '@/lib/envResolver'
+import { ActionType } from '@/context/reducer/requestFormTypes'
 import { useRequestFormContext } from '@/context/RequestFormContext'
+import { HTTP_METHODS } from '@/constants/http'
 
-interface RequestBuilderProps {
-  onResponse: (res: any) => void
-}
-
-export const RequestBuilder: React.FC<RequestBuilderProps> = ({
+export const RequestBuilder: React.FC<{ onResponse: (res: any) => void }> = ({
   onResponse,
 }) => {
+  const { state, dispatch } = useRequestFormContext()
   const { addRequest } = useHistoryContext()
-  const { preset, setPreset } = useRequestFormContext()
 
-  const {
-    method,
-    setMethod,
-    url,
-    setUrl,
-    headers,
-    setHeaders,
-    body,
-    setBody,
-    isValid,
-  } = useRequestForm()
-
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { selectedEnv } = useEnvContext()
-
-  useEffect(() => {
-    if (preset) {
-      setMethod(preset.method)
-      setUrl(preset.url)
-      setHeaders(preset.headers)
-      setBody(preset.body)
-      setPreset(null)
-    }
-  }, [preset])
+  const isUrlValid = state.url.trim().startsWith('http')
 
   const handleSend = async () => {
-    if (!isValid) {
-      setError('Enter a valid URL')
-      return
-    }
+    const response = await requestHandler(state)
+    onResponse(response)
+    addRequest({ ...state })
+  }
 
-    setLoading(true)
-    setError(null)
+  const handleHeaderChange = (
+    index: number,
+    key: 'key' | 'value',
+    value: string
+  ) => {
+    const newHeaders = [...state.headers]
+    newHeaders[index] = { ...newHeaders[index], [key]: value }
+    dispatch({ type: ActionType.SET_HEADERS, payload: newHeaders })
+  }
 
-    try {
-      const resolvedUrl = resolveEnvVars(url, selectedEnv?.variables || [])
-      const resolvedBody = resolveEnvVars(body, selectedEnv?.variables || [])
-      const response = await requestHandler({
-        method,
-        url: resolvedUrl,
-        headers,
-        body: resolvedBody,
-      })
+  const addHeader = () => {
+    dispatch({
+      type: ActionType.SET_HEADERS,
+      payload: [...state.headers, { key: '', value: '' }],
+    })
+  }
 
-      onResponse(response)
-
-      await addRequest({
-        method,
-        url,
-        headers,
-        body,
-      })
-    } catch (err: any) {
-      setError(err.message || 'Unknown error')
-    } finally {
-      setLoading(false)
-    }
+  const removeHeader = (index: number) => {
+    const updated = state.headers.filter((_, i) => i !== index)
+    dispatch({ type: ActionType.SET_HEADERS, payload: updated })
   }
 
   return (
-    <div>
-      <EnvSelector />
-      <MethodSelector method={method} onChange={setMethod} />
-      <UrlInput url={url} onChange={setUrl} error={error || undefined} />
-      <HeaderEditor headers={headers} onChange={setHeaders} />
-      <BodyEditor body={body} onChange={setBody} />
-      <SendButton onClick={handleSend} disabled={!isValid} loading={loading} />
-    </div>
+    <Stack gap={3}>
+      <Form.Group>
+        <Form.Label>Request URL</Form.Label>
+        <Form.Control
+          value={state.url}
+          onChange={(e) =>
+            dispatch({ type: ActionType.SET_URL, payload: e.target.value })
+          }
+          placeholder="https://api.example.com"
+        />
+      </Form.Group>
+
+      <Form.Group>
+        <Form.Label>Method</Form.Label>
+        <Form.Select
+          value={state.method}
+          onChange={(e) =>
+            dispatch({
+              type: ActionType.SET_METHOD,
+              payload: e.target.value as HTTP_METHODS,
+            })
+          }
+        >
+          {Object.values(HTTP_METHODS).map((method) => (
+            <option key={method} value={method}>
+              {method}
+            </option>
+          ))}
+        </Form.Select>
+      </Form.Group>
+
+      <Form.Group>
+        <Form.Label>Headers</Form.Label>
+        <Stack gap={2}>
+          {state.headers.map((h, idx) => (
+            <Stack direction="horizontal" gap={2} key={idx}>
+              <Form.Control
+                placeholder="Key"
+                value={h.key}
+                onChange={(e) => handleHeaderChange(idx, 'key', e.target.value)}
+              />
+              <Form.Control
+                placeholder="Value"
+                value={h.value}
+                onChange={(e) =>
+                  handleHeaderChange(idx, 'value', e.target.value)
+                }
+              />
+              <Button
+                variant="outline-danger"
+                onClick={() => removeHeader(idx)}
+              >
+                ×
+              </Button>
+            </Stack>
+          ))}
+          <Button variant="outline-primary" onClick={addHeader}>
+            + Add Header
+          </Button>
+        </Stack>
+      </Form.Group>
+
+      <Form.Group>
+        <Form.Label>Body</Form.Label>
+        <Form.Control
+          as="textarea"
+          rows={5}
+          value={state.body}
+          onChange={(e) =>
+            dispatch({ type: ActionType.SET_BODY, payload: e.target.value })
+          }
+        />
+      </Form.Group>
+
+      <Button onClick={handleSend} disabled={!isUrlValid}>
+        Send Request
+      </Button>
+    </Stack>
   )
 }

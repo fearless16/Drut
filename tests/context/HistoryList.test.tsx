@@ -2,9 +2,13 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { HistoryList } from '@/components/History/HistoryList'
 import { HTTP_METHODS } from '@/constants/http'
+import { format } from 'date-fns'
 
 describe('HistoryList', () => {
-  const mockUse = vi.fn()
+  const mockReplay = vi.fn()
+  const mockDelete = vi.fn()
+  const time = Date.now()
+
   const fake = [
     {
       id: '123',
@@ -12,20 +16,59 @@ describe('HistoryList', () => {
       url: 'https://api.com',
       headers: [],
       body: '',
-      timestamp: Date.now(),
+      timestamp: time,
     },
   ]
 
-  it('triggers onUse when Use is clicked', () => {
+  it('renders all history data correctly', () => {
     render(
       <HistoryList
         data={fake}
-        onDelete={() => {}}
-        onUse={mockUse}
+        onReplay={mockReplay}
+        onDelete={mockDelete}
       />
     )
 
-    fireEvent.click(screen.getByText('Use'))
-    expect(mockUse).toHaveBeenCalledWith(fake[0])
+    expect(screen.getByText(HTTP_METHODS.GET)).toBeInTheDocument()
+    expect(screen.getByText('https://api.com')).toBeInTheDocument()
+    expect(screen.getByText(format(time, 'PPpp'))).toBeInTheDocument()
+  })
+
+  it('triggers onReplay when Replay is clicked', () => {
+    render(
+      <HistoryList
+        data={fake}
+        onReplay={mockReplay}
+        onDelete={mockDelete}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Replay'))
+    expect(mockReplay).toHaveBeenCalledWith(fake[0])
+  })
+
+  it('triggers onDelete when Delete is clicked', () => {
+    render(
+      <HistoryList
+        data={fake}
+        onReplay={mockReplay}
+        onDelete={mockDelete}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Delete'))
+    expect(mockDelete).toHaveBeenCalledWith(fake[0].id)
+  })
+
+  it('shows empty state when no data is present', () => {
+    render(
+      <HistoryList
+        data={[]}
+        onReplay={mockReplay}
+        onDelete={mockDelete}
+      />
+    )
+
+    expect(screen.getByText(/no history yet/i)).toBeInTheDocument()
   })
 })
