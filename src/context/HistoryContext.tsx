@@ -14,6 +14,7 @@ export interface HistoryRecord {
 }
 
 interface HistoryContextType {
+  deleteRequest(id: string): unknown
   history: HistoryRecord[]
   addRequest: (record: Omit<HistoryRecord, 'id' | 'timestamp'>) => Promise<void>
   clearHistory: () => void
@@ -29,17 +30,17 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({
   const [history, setHistory] = useState<HistoryRecord[]>([])
 
   useEffect(() => {
-      const fetchHistory = async () => {
-        try {
-          const stored = await localforage.getItem<HistoryRecord[]>('history')
-          if (stored) setHistory(stored)
-        } catch (err) {
-          setHistory([]) // fallback
-        }
+    const fetchHistory = async () => {
+      try {
+        const stored = await localforage.getItem<HistoryRecord[]>('history')
+        if (stored) setHistory(stored)
+      } catch (err) {
+        setHistory([])
       }
+    }
 
-      fetchHistory()
-    }, [])
+    fetchHistory()
+  }, [])
 
   const addRequest = async (
     record: Omit<HistoryRecord, 'id' | 'timestamp'>
@@ -59,9 +60,15 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({
     setHistory([])
     await localforage.removeItem('history')
   }
+  
+  const deleteRequest = async (id: string) => {
+    const filtered = history.filter((r) => r.id !== id)
+    setHistory(filtered)
+    await localforage.setItem('history', filtered)
+  }
 
   return (
-    <HistoryContext.Provider value={{ history, addRequest, clearHistory }}>
+    <HistoryContext.Provider value={{ history, addRequest, clearHistory, deleteRequest }}>
       {children}
     </HistoryContext.Provider>
   )

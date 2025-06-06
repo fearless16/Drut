@@ -3,6 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { HistoryProvider, useHistoryContext } from '@/context/HistoryContext'
 import * as localforage from 'localforage'
 import React from 'react'
+import { HTTP_METHODS } from '@/constants/http'
 
 vi.mock('localforage', async (importOriginal) => {
   const actual = (await importOriginal()) as any
@@ -74,7 +75,7 @@ describe('HistoryContext', () => {
 
     await act(async () => {
       await result.current.addRequest({
-        method: 'POST',
+        method: HTTP_METHODS.POST,
         url: 'https://new.com',
         headers: [],
         body: '',
