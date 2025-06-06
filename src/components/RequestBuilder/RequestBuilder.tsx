@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRequestForm } from '@/hooks/useRequestForm'
 import { MethodSelector } from './MethodSelector'
 import { UrlInput } from './UrlInput'
@@ -10,6 +10,7 @@ import { useHistoryContext } from '@/context/HistoryContext'
 import { EnvSelector } from '../Env/EnvSelector'
 import { useEnvContext } from '@/context/EnvContext'
 import { resolveEnvVars } from '@/lib/envResolver'
+import { useRequestFormContext } from '@/context/RequestFormContext'
 
 interface RequestBuilderProps {
   onResponse: (res: any) => void
@@ -19,6 +20,8 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({
   onResponse,
 }) => {
   const { addRequest } = useHistoryContext()
+  const { preset, setPreset } = useRequestFormContext()
+
   const {
     method,
     setMethod,
@@ -34,6 +37,16 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { selectedEnv } = useEnvContext()
+
+  useEffect(() => {
+    if (preset) {
+      setMethod(preset.method)
+      setUrl(preset.url)
+      setHeaders(preset.headers)
+      setBody(preset.body)
+      setPreset(null)
+    }
+  }, [preset])
 
   const handleSend = async () => {
     if (!isValid) {

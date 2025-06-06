@@ -2,8 +2,8 @@ import React from 'react'
 import { HTTP_METHODS } from '@/constants/http'
 
 interface MethodSelectorProps {
-  method: keyof typeof HTTP_METHODS
-  onChange: (method: keyof typeof HTTP_METHODS) => void
+  method: HTTP_METHODS
+  onChange: (method: HTTP_METHODS) => void
 }
 
 export const MethodSelector: React.FC<MethodSelectorProps> = ({
@@ -14,7 +14,7 @@ export const MethodSelector: React.FC<MethodSelectorProps> = ({
     <select
       className="form-select"
       value={method}
-      onChange={(e) => onChange(e.target.value as keyof typeof HTTP_METHODS)}
+      onChange={(e) => onChange(e.target.value as HTTP_METHODS)}
     >
       {Object.entries(HTTP_METHODS).map(([key, value]) => (
         <option key={key} value={value}>

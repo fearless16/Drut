@@ -1,33 +1,52 @@
+import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { HistoryPage } from '@/pages/HistoryPage'
-import { HistoryContext } from '@/context/HistoryContext'
-import { describe, it, expect } from 'vitest'
-import React from 'react'
+import { EnvProvider } from '@/context/EnvContext'
+import { RequestFormProvider } from '@/context/RequestFormContext'
+import { HistoryProvider } from '@/context/HistoryContext'
+import { vi, describe, it, expect } from 'vitest'
+import { HTTP_METHODS } from '@/constants/http'
 
-const fakeContext = {
-  history: [
-    {
-      id: '1',
-      method: 'GET',
-      url: 'https://api.com',
-      headers: [],
-      body: '',
-      timestamp: Date.now(),
-    },
-  ],
-  addRequest: () => {},
-  clearHistory: () => {},
-}
+// 1. Mock HistoryContext to provide one record
+const fakeHistory = [
+  {
+    id: 'h1',
+    method: HTTP_METHODS.GET,
+    url: 'https://a.com',
+    headers: [],
+    body: '',
+    timestamp: 123,
+  },
+]
+vi.mock('@/context/HistoryContext', () => ({
+  HistoryProvider: ({ children }: any) => children,
+  useHistoryContext: () => ({
+    history: fakeHistory,
+    addRequest: vi.fn(),
+    clearHistory: vi.fn(),
+  }),
+}))
+
+// 2. Composite wrapper including all required providers
+const AllProviders = ({ children }: { children: React.ReactNode }) => (
+  <EnvProvider>
+    <RequestFormProvider>
+      <HistoryProvider>{children}</HistoryProvider>
+    </RequestFormProvider>
+  </EnvProvider>
+)
 
 describe('HistoryPage', () => {
   it('renders request history page with one record', () => {
-    render(
-      <HistoryContext.Provider value={fakeContext}>
-        <HistoryPage />
-      </HistoryContext.Provider>
-    )
+    render(<HistoryPage />, { wrapper: AllProviders })
 
-    expect(screen.getByText('Request History')).toBeInTheDocument()
-    expect(screen.getByText('https://api.com')).toBeInTheDocument()
+    // Assert the page heading
+    expect(
+      screen.getByRole('heading', { name: /history/i })
+    ).toBeInTheDocument()
+
+    // Assert that our fake record shows up
+    expect(screen.getByText('https://a.com')).toBeInTheDocument()
+    expect(screen.getByText('GET')).toBeInTheDocument()
   })
 })

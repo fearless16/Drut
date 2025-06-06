@@ -2,10 +2,11 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import * as localforage from 'localforage'
 import { v4 as uuid } from 'uuid'
 import type { HeaderItem } from '@/components/RequestBuilder/HeaderEditor'
+import type { HTTP_METHODS } from '@/constants/http'
 
 export interface HistoryRecord {
   id: string
-  method: string
+  method: HTTP_METHODS
   url: string
   headers: HeaderItem[]
   body: string
