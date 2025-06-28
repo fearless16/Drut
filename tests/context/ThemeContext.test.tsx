@@ -1,21 +1,29 @@
+import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
-import * as localforage from 'localforage'
-import { ThemeProvider } from 'react-bootstrap'
-import { useTheme } from '@/context/ThemeContext'
+import { render, screen, act, fireEvent } from '@testing-library/react'
+import { ThemeProvider, useTheme } from '@/context/ThemeContext'
+import localforage from 'localforage'
 
-vi.mock('localforage', async (importOriginal) => {
-  const actual = await importOriginal() as object
+// ⛑ Properly mock localforage default
+vi.mock('localforage', () => {
   return {
-    ...actual,
-    getItem: vi.fn(),
-    setItem: vi.fn(),
+    default: {
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+    },
   }
 })
 
+// ⚙ Helper to extract mocked version
+const mockedLocalforage = localforage as unknown as {
+  getItem: ReturnType<typeof vi.fn>
+  setItem: ReturnType<typeof vi.fn>
+}
+
+// 🔧 Mock matchMedia for system theme
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation((query) => ({
+  value: vi.fn().mockImplementation(query => ({
     matches: query === '(prefers-color-scheme: dark)',
     media: query,
     onchange: null,
@@ -24,61 +32,90 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 })
 
-const wrapper = ({ children }: any) => <ThemeProvider>{children}</ThemeProvider>
+// 🧪 TestComponent to hook into context
+const Dummy = () => {
+  const { theme, variant, className, toggleTheme } = useTheme()
+  return (
+    <>
+      <div data-testid="theme">{theme}</div>
+      <div data-testid="variant">{variant}</div>
+      <div data-testid="className">{className}</div>
+      <button onClick={toggleTheme}>Toggle</button>
+    </>
+  )
+}
+
+const renderThemeContext = async () => {
+  await act(async () => {
+    render(
+      <ThemeProvider>
+        <Dummy />
+      </ThemeProvider>
+    )
+  })
+}
 
 describe('ThemeContext', () => {
   beforeEach(() => {
-    vi.resetAllMocks()
     document.body.className = ''
+    vi.clearAllMocks()
   })
 
-  it('initializes theme from localforage if available', async () => {
-    ;(localforage.getItem as any).mockResolvedValueOnce('light')
+  it('loads system dark theme if no saved value', async () => {
+    mockedLocalforage.getItem.mockResolvedValueOnce(null)
 
-    const { result } = renderHook(() => useTheme(), { wrapper })
+    await renderThemeContext()
 
-    await waitFor(() => {
-      expect(result.current.theme).toBe('light')
-      expect(document.body.classList.contains('theme-light')).toBe(true)
-    })
+    expect(screen.getByTestId('theme').textContent).toBe('dark')
+    expect(document.body.classList.contains('theme-dark')).toBe(true)
+    expect(mockedLocalforage.setItem).toHaveBeenCalledWith('drut_theme', 'dark')
   })
 
-  it('falls back to system dark mode if no stored value', async () => {
-    ;(localforage.getItem as any).mockResolvedValueOnce(null)
+  it('loads stored theme from localforage if exists', async () => {
+    mockedLocalforage.getItem.mockResolvedValueOnce('light')
 
-    const { result } = renderHook(() => useTheme(), { wrapper })
+    await renderThemeContext()
 
-    await waitFor(() => {
-      expect(result.current.theme).toBe('dark')
-      expect(document.body.classList.contains('theme-dark')).toBe(true)
-    })
-  })
-
-  it('toggleTheme switches theme and updates body/class', async () => {
-    ;(localforage.getItem as any).mockResolvedValueOnce('dark')
-
-    const { result } = renderHook(() => useTheme(), { wrapper })
-
-    await waitFor(() => {
-      expect(result.current.theme).toBe('dark')
-    })
-
-    act(() => {
-      result.current.toggleTheme()
-    })
-
-    expect(result.current.theme).toBe('light')
+    expect(screen.getByTestId('theme').textContent).toBe('light')
     expect(document.body.classList.contains('theme-light')).toBe(true)
-    expect(localforage.setItem).toHaveBeenCalledWith('drut_theme', 'light')
   })
 
-  it('throws error when used outside provider', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  it('toggles from light → dark → light and updates class + storage', async () => {
+    mockedLocalforage.getItem.mockResolvedValueOnce('light')
 
-    expect(() => renderHook(() => useTheme())).toThrow(
+    await renderThemeContext()
+
+    const toggleBtn = screen.getByRole('button', { name: /toggle/i })
+    expect(screen.getByTestId('theme').textContent).toBe('light')
+
+    await act(() => fireEvent.click(toggleBtn))
+    expect(screen.getByTestId('theme').textContent).toBe('dark')
+    expect(document.body.classList.contains('theme-dark')).toBe(true)
+    expect(mockedLocalforage.setItem).toHaveBeenCalledWith('drut_theme', 'dark')
+
+    await act(() => fireEvent.click(toggleBtn))
+    expect(screen.getByTestId('theme').textContent).toBe('light')
+    expect(document.body.classList.contains('theme-light')).toBe(true)
+    expect(mockedLocalforage.setItem).toHaveBeenCalledWith('drut_theme', 'light')
+  })
+
+  it('provides correct className and variant values', async () => {
+    mockedLocalforage.getItem.mockResolvedValueOnce('dark')
+
+    await renderThemeContext()
+
+    expect(screen.getByTestId('variant').textContent).toBe('dark')
+    expect(screen.getByTestId('className').textContent).toBe('theme-dark')
+  })
+
+  it('throws error when useTheme used outside provider', () => {
+    const Breaker = () => {
+      useTheme()
+      return <div />
+    }
+
+    expect(() => render(<Breaker />)).toThrowError(
       'useTheme must be used inside ThemeProvider'
     )
-
-    spy.mockRestore()
   })
 })

@@ -1,42 +1,55 @@
 import React from 'react'
-import { render, fireEvent } from '@testing-library/react'
+import { render, fireEvent, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { ThemeContext } from '@/context/ThemeContext'
-import { describe, expect, it, vi } from 'vitest'
+
+const mockToggleTheme = vi.fn()
+
+const renderWithTheme = (theme: 'light' | 'dark') => {
+  return render(
+    <ThemeContext.Provider
+      value={{
+        theme,
+        toggleTheme: mockToggleTheme,
+        variant: theme,
+        className: `theme-${theme}`,
+      }}
+    >
+      <ThemeToggle />
+    </ThemeContext.Provider>
+  )
+}
 
 describe('ThemeToggle', () => {
-  const toggleTheme = vi.fn()
-
-  const renderWithContext = (theme: 'light' | 'dark') =>
-    render(
-      <ThemeContext.Provider
-        value={{
-          theme: 'light',
-          toggleTheme: vi.fn(),
-          variant: 'light',
-          className: 'light-mode',
-        }}
-      >
-        <ThemeToggle />
-      </ThemeContext.Provider>
-    )
-
-  it('renders correctly in light mode', () => {
-    const { getByTestId } = renderWithContext('light')
-    const toggleBtn = getByTestId('theme-toggle-btn')
-    expect(toggleBtn.className).toContain('light')
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
   it('renders correctly in dark mode', () => {
-    const { getByTestId } = renderWithContext('dark')
-    const toggleBtn = getByTestId('theme-toggle-btn')
+    renderWithTheme('dark')
+    const toggleBtn = screen.getByTestId('theme-toggle-btn')
+    expect(toggleBtn).toBeInTheDocument()
     expect(toggleBtn.className).toContain('dark')
   })
 
+  it('renders correctly in light mode', () => {
+    renderWithTheme('light')
+    const toggleBtn = screen.getByTestId('theme-toggle-btn')
+    expect(toggleBtn).toBeInTheDocument()
+    expect(toggleBtn.className).toContain('light')
+  })
+
   it('calls toggleTheme on click', () => {
-    const { getByTestId } = renderWithContext('light')
-    const toggleBtn = getByTestId('theme-toggle-btn')
+    renderWithTheme('light')
+    const toggleBtn = screen.getByTestId('theme-toggle-btn')
     fireEvent.click(toggleBtn)
-    expect(toggleTheme).toHaveBeenCalledTimes(1)
+    expect(mockToggleTheme).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the icon and thumb', () => {
+    renderWithTheme('dark')
+    expect(screen.getByTestId('theme-thumb')).toBeInTheDocument()
+    expect(screen.getByTestId('theme-toggle-btn')).toBeInTheDocument()
   })
 })

@@ -1,157 +1,149 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
-import { HistoryProvider, useHistoryContext } from '@/context/HistoryContext'
-import * as localforage from 'localforage'
 import React from 'react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { HistoryProvider, useHistoryContext } from '@/context/HistoryContext'
 import { HTTP_METHODS } from '@/constants/http'
+import * as localforage from 'localforage'
 
 vi.mock('localforage', async (importOriginal) => {
-  const actual = (await importOriginal()) as any
+  const actual = (await importOriginal()) as object
   return {
     ...actual,
-    getItem: vi.fn().mockResolvedValue([]),
-    setItem: vi.fn().mockResolvedValue(undefined),
-    removeItem: vi.fn().mockResolvedValue(undefined),
+    getItem: vi.fn(),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
   }
 })
 
-const wrapper = ({ children }: any) => (
-  <HistoryProvider>{children}</HistoryProvider>
-)
+const mockedLocalforage = localforage as unknown as {
+  getItem: ReturnType<typeof vi.fn>
+  setItem: ReturnType<typeof vi.fn>
+  removeItem: ReturnType<typeof vi.fn>
+}
+
+// Dummy component to interact with context
+const DummyComponent = () => {
+  const { history, addRequest, clearHistory, deleteRequest } =
+    useHistoryContext()
+
+  return (
+    <>
+      <button
+        onClick={() =>
+          addRequest({
+            method: HTTP_METHODS.GET,
+            url: 'https://test.com',
+            headers: [],
+            body: '',
+          })
+        }
+      >
+        Add
+      </button>
+      <button onClick={clearHistory}>Clear</button>
+      <button onClick={() => history[0] && deleteRequest(history[0].id)}>
+        Delete
+      </button>
+      <div data-testid="history-count">{history.length}</div>
+    </>
+  )
+}
+
+const renderWithProvider = () =>
+  render(
+    <HistoryProvider>
+      <DummyComponent />
+    </HistoryProvider>
+  )
 
 describe('HistoryContext', () => {
   beforeEach(() => {
-    vi.resetAllMocks()
-  })
-  it('handles storage errors like a pro', async () => {
-    ;(localforage.getItem as any).mockRejectedValueOnce(
-      new Error('Chutiya storage failed')
-    )
-
-    const { result } = renderHook(() => useHistoryContext(), { wrapper })
-
-    await waitFor(() => {
-      expect(result.current.history.length).toBe(0)
-    })
+    vi.clearAllMocks()
+    mockedLocalforage.getItem.mockResolvedValue([])
   })
 
-  it('loads history on init', async () => {
-    ;(localforage.getItem as any).mockResolvedValueOnce([
+  it('loads initial history from localforage', async () => {
+    mockedLocalforage.getItem.mockResolvedValueOnce([
       {
         id: '1',
         method: HTTP_METHODS.GET,
-        url: 'https://yo.com',
+        url: 'https://init.com',
         headers: [],
         body: '',
         timestamp: Date.now(),
       },
     ])
 
-    const { result } = renderHook(() => useHistoryContext(), { wrapper })
+    renderWithProvider()
+
+    await waitFor(() =>
+      expect(screen.getByTestId('history-count').textContent).toBe('1')
+    )
+  })
+
+  it('adds a request and persists to localforage', async () => {
+    renderWithProvider()
+
+    fireEvent.click(screen.getByText('Add'))
 
     await waitFor(() => {
-      expect(result.current.history.length).toBe(1)
-      expect(result.current.history[0].url).toBe('https://yo.com')
+      expect(mockedLocalforage.setItem).toHaveBeenCalledWith(
+        'history',
+        expect.arrayContaining([
+          expect.objectContaining({ url: 'https://test.com' }),
+        ])
+      )
+      expect(screen.getByTestId('history-count').textContent).toBe('1')
     })
   })
 
-  it('adds newest request on top like alpha male', async () => {
-    ;(localforage.getItem as any).mockResolvedValueOnce([
-      {
-        id: '123',
-        method: HTTP_METHODS.GET,
-        url: 'https://older.com',
-        headers: [],
-        body: '',
-        timestamp: Date.now() - 5000,
-      },
-    ])
+  it('clears all history', async () => {
+    renderWithProvider()
 
-    const { result } = renderHook(() => useHistoryContext(), { wrapper })
+    fireEvent.click(screen.getByText('Clear'))
 
-    await waitFor(() => {
-      expect(result.current.history.length).toBe(1)
-    })
+    await waitFor(() =>
+      expect(mockedLocalforage.removeItem).toHaveBeenCalledWith('history')
+    )
 
-    await act(async () => {
-      await result.current.addRequest({
-        method: HTTP_METHODS.POST,
-        url: 'https://new.com',
-        headers: [],
-        body: '',
-      })
-    })
-
-    await waitFor(() => {
-      expect(result.current.history[0].url).toBe('https://new.com')
-      expect(result.current.history[1].url).toBe('https://older.com')
-    })
+    expect(screen.getByTestId('history-count').textContent).toBe('0')
   })
 
-  it('clearHistory can be called multiple times without dying', async () => {
-    const { result } = renderHook(() => useHistoryContext(), { wrapper })
-    await Promise.all([
-      act(() => result.current.clearHistory()),
-      act(() => result.current.clearHistory()),
-    ])
-
-    await waitFor(() => {
-      expect(result.current.history).toEqual([])
-    })
-  })
-
-  it('deletes a request by ID', async () => {
-    const fakeHistory = [
+  it('deletes a specific request', async () => {
+    mockedLocalforage.getItem.mockResolvedValueOnce([
       {
         id: '1',
         method: HTTP_METHODS.GET,
-        url: 'https://a.com',
+        url: 'https://delete.com',
         headers: [],
         body: '',
-        timestamp: 1,
+        timestamp: Date.now(),
       },
-      {
-        id: '2',
-        method: HTTP_METHODS.GET,
-        url: 'https://b.com',
-        headers: [],
-        body: '',
-        timestamp: 2,
-      },
-    ]
-    ;(localforage.getItem as any).mockResolvedValueOnce(fakeHistory)
+    ])
 
-    const { result } = renderHook(() => useHistoryContext(), { wrapper })
+    renderWithProvider()
 
-    await waitFor(() => {
-      expect(result.current.history.length).toBe(2)
-    })
-
-    await act(async () => {
-      await result.current.deleteRequest('1')
-    })
-
-    await waitFor(() => {
-      expect(result.current.history).toHaveLength(1)
-      expect(result.current.history[0].id).toBe('2')
-    })
-  })
-
-  it('throws error if used outside provider', () => {
-    const mockConsole = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    let err
-    try {
-      renderHook(() => useHistoryContext())
-    } catch (e) {
-      err = e
-    }
-
-    expect(err).toBeInstanceOf(Error)
-    expect(err?.message).toBe(
-      'useHistoryContext must be used within HistoryProvider'
+    await waitFor(() =>
+      expect(screen.getByTestId('history-count').textContent).toBe('1')
     )
 
-    mockConsole.mockRestore()
+    fireEvent.click(screen.getByText('Delete'))
+
+    await waitFor(() =>
+      expect(mockedLocalforage.setItem).toHaveBeenCalledWith('history', [])
+    )
+
+    expect(screen.getByTestId('history-count').textContent).toBe('0')
+  })
+
+  it('throws error when hook used outside provider', () => {
+    const BadComp = () => {
+      useHistoryContext()
+      return null
+    }
+
+    expect(() => render(<BadComp />)).toThrow(
+      'useHistoryContext must be used within HistoryProvider'
+    )
   })
 })

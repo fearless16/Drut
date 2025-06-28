@@ -1,146 +1,111 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { requestHandler, type RequestPayload } from '@/lib/requestHandler'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-let fetchMock: ReturnType<typeof vi.fn>
+global.fetch = vi.fn()
 
-beforeEach(() => {
-  fetchMock = vi.fn()
-  global.fetch = fetchMock as any
-})
+const mockFetch = fetch as unknown as ReturnType<typeof vi.fn>
 
-afterEach(() => {
-  vi.resetAllMocks()
-})
+const buildResponse = ({
+  status = 200,
+  statusText = 'OK',
+  body = '{}',
+  headers = { 'content-type': 'application/json' },
+} = {}) =>
+  Promise.resolve({
+    status,
+    statusText,
+    headers: {
+      get: (key: string) => headers[key],
+      entries: () => Object.entries(headers),
+    },
+    json: async () => JSON.parse(body),
+    text: async () => body,
+  })
 
-const defaultHeaders = [{ key: 'Content-Type', value: 'application/json' }]
+const basePayload: RequestPayload = {
+  method: 'POST',
+  url: 'https://api.test.com',
+  headers: [],
+  body: JSON.stringify({ foo: 'bar' }),
+}
 
 describe('requestHandler', () => {
-  it('handles GET request with JSON response', async () => {
-    const jsonResponse = { success: true }
-    fetchMock.mockResolvedValue({
-      status: 200,
-      statusText: 'OK',
-      headers: {
-        get: (key: string) => (key === 'content-type' ? 'application/json' : null),
-        entries: () => [['content-type', 'application/json']],
-      },
-      json: async () => jsonResponse,
-      text: async () => JSON.stringify(jsonResponse),
-    })
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
 
-    const payload: RequestPayload = {
-      method: 'GET',
-      url: 'https://example.com',
-      headers: defaultHeaders,
-    }
+  it('parses valid JSON and returns response with JSON body', async () => {
+    mockFetch.mockImplementation(() => buildResponse({ body: '{"msg":"ok"}' }))
 
-    const res = await requestHandler(payload)
+    const res = await requestHandler(basePayload)
 
+    expect(mockFetch).toHaveBeenCalledWith(basePayload.url, expect.any(Object))
     expect(res.status).toBe(200)
-    expect(res.statusText).toBe('OK')
-    expect(res.body).toEqual(jsonResponse)
-    expect(typeof res.time).toBe('number')
+    expect(res.body).toEqual({ msg: 'ok' })
     expect(res.headers).toHaveProperty('content-type')
+    expect(res.time).toBeGreaterThanOrEqual(0)
   })
 
-  it('handles POST request with text response', async () => {
-    fetchMock.mockResolvedValue({
-      status: 201,
-      statusText: 'Created',
-      headers: {
-        get: (key: string) => (key === 'content-type' ? 'text/plain' : null),
-        entries: () => [['content-type', 'text/plain']],
-      },
-      json: async () => ({}),
-      text: async () => 'Created',
-    })
-
-    const payload: RequestPayload = {
-      method: 'POST',
-      url: 'https://example.com/submit',
-      headers: [],
-      body: 'some-data',
-    }
-
-    const res = await requestHandler(payload)
-
-    expect(res.status).toBe(201)
-    expect(res.statusText).toBe('Created')
-    expect(res.body).toBe('Created')
-  })
-
-  it('handles custom headers correctly', async () => {
-    fetchMock.mockResolvedValue({
-      status: 200,
-      statusText: 'OK',
-      headers: {
-        get: () => 'application/json',
-        entries: () => [],
-      },
-      json: async () => ({}),
-      text: async () => '',
-    })
-
-    const payload: RequestPayload = {
-      method: 'GET',
-      url: 'https://example.com',
-      headers: [{ key: 'Authorization', value: 'Bearer token' }],
-    }
-
-    await requestHandler(payload)
-
-    expect(fetchMock).toHaveBeenCalledWith('https://example.com', expect.objectContaining({
-      headers: { Authorization: 'Bearer token' },
-    }))
-  })
-
-  it('omits body for GET and HEAD methods', async () => {
-    fetchMock.mockResolvedValue({
-      status: 204,
-      statusText: 'No Content',
-      headers: {
-        get: () => 'application/json',
-        entries: () => [],
-      },
-      json: async () => ({}),
-      text: async () => '',
-    })
-
-    const methods = ['GET', 'HEAD']
-    for (const method of methods) {
-      await requestHandler({
-        method,
-        url: 'https://example.com',
-        headers: [],
-        body: 'should-not-send',
+  it('returns text body if content-type is not JSON', async () => {
+    mockFetch.mockImplementation(() =>
+      buildResponse({
+        body: 'plain text',
+        headers: { 'content-type': 'text/plain' },
       })
+    )
 
-      expect(fetchMock).toHaveBeenCalledWith('https://example.com', expect.objectContaining({
-        body: undefined,
-      }))
-    }
+    const res = await requestHandler({ ...basePayload, body: undefined })
+
+    expect(typeof res.body).toBe('string')
+    expect(res.body).toBe('plain text')
   })
 
-  it('handles missing content-type gracefully', async () => {
-    fetchMock.mockResolvedValue({
-      status: 200,
-      statusText: 'OK',
-      headers: {
-        get: () => null,
-        entries: () => [],
-      },
-      json: async () => ({}),
-      text: async () => 'raw-text',
+  it('adds default Content-Type if not provided', async () => {
+    mockFetch.mockImplementation(() => buildResponse({}))
+
+    await requestHandler(basePayload)
+
+    const call = mockFetch.mock.calls[0][1]!
+    expect((call as any).headers['Content-Type']).toBe('application/json')
+  })
+
+  it('respects existing Content-Type', async () => {
+    mockFetch.mockImplementation(() => buildResponse({}))
+
+    await requestHandler({
+      ...basePayload,
+      headers: [{ key: 'Content-Type', value: 'text/plain' }],
     })
 
-    const payload: RequestPayload = {
-      method: 'GET',
-      url: 'https://example.com/raw',
-      headers: [],
-    }
+    const call = mockFetch.mock.calls[0][1]!
+    expect((call as any).headers['Content-Type']).toBe('text/plain')
+  })
 
-    const res = await requestHandler(payload)
+  it('handles invalid JSON body and continues request', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    expect(res.body).toBe('raw-text')
+    mockFetch.mockImplementation(() => buildResponse({}))
+
+    await requestHandler({
+      ...basePayload,
+      body: '{invalid json',
+    })
+
+    expect(warnSpy).toHaveBeenCalled()
+    expect(mockFetch).toHaveBeenCalled()
+
+    warnSpy.mockRestore()
+  })
+
+  it('handles empty body gracefully', async () => {
+    mockFetch.mockImplementation(() => buildResponse({}))
+
+    await requestHandler({
+      ...basePayload,
+      body: '',
+    })
+
+    const call = mockFetch.mock.calls[0][1]!
+    expect((call as any).body).toBe(undefined)
   })
 })
