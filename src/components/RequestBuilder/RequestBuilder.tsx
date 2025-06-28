@@ -1,23 +1,40 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button, Form, Stack } from 'react-bootstrap'
 import { requestHandler } from '@/lib/requestHandler'
 import { useHistoryContext } from '@/context/HistoryContext'
-import { ActionType } from '@/context/reducer/requestFormTypes'
+import { ActionType } from '@/context/reducer/requestFormReducer'
 import { useRequestFormContext } from '@/context/RequestFormContext'
 import { HTTP_METHODS } from '@/constants/http'
+import { useLocation } from 'react-router-dom'
+import { useTheme } from '@/context/ThemeContext'
 
 export const RequestBuilder: React.FC<{ onResponse: (res: any) => void }> = ({
   onResponse,
 }) => {
   const { state, dispatch } = useRequestFormContext()
   const { addRequest } = useHistoryContext()
+  const location = useLocation()
+  const { theme } = useTheme()
+  const [loading, setLoading] = useState(false)
 
-  const isUrlValid = state.url.trim().startsWith('http')
+  useEffect(() => {
+    if (location.state) {
+      dispatch({ type: ActionType.PRESET, payload: location.state })
+    }
+  }, [location.state])
+
+  const url = state.url.trim()
+  const isUrlValid = url.startsWith('http://') || url.startsWith('https://')
 
   const handleSend = async () => {
-    const response = await requestHandler(state)
-    onResponse(response)
-    addRequest({ ...state })
+    setLoading(true)
+    try {
+      const response = await requestHandler(state)
+      onResponse(response)
+      addRequest({ ...state })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleHeaderChange = (
@@ -111,14 +128,19 @@ export const RequestBuilder: React.FC<{ onResponse: (res: any) => void }> = ({
           as="textarea"
           rows={5}
           value={state.body}
+          placeholder='{"key": "value"}'
           onChange={(e) =>
             dispatch({ type: ActionType.SET_BODY, payload: e.target.value })
           }
         />
       </Form.Group>
 
-      <Button onClick={handleSend} disabled={!isUrlValid}>
-        Send Request
+      <Button
+        variant={theme === 'light' ? 'dark' : 'light'}
+        onClick={handleSend}
+        disabled={!isUrlValid || loading}
+      >
+        { loading ? 'Sending...' : 'Send Request'}
       </Button>
     </Stack>
   )

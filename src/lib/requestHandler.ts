@@ -7,19 +7,21 @@ export interface RequestPayload {
 
 export async function requestHandler(payload: RequestPayload) {
   const { method, url, headers, body } = payload
-
   const start = performance.now()
+
+  let parsedBody = undefined
+  if (body) {
+    try {
+      parsedBody = JSON.parse(body)
+    } catch (err) {
+      console.warn('Invalid JSON body:', err)
+    }
+  }
 
   const response = await fetch(url, {
     method,
-    headers: headers.reduce(
-      (acc, h) => {
-        if (h.key) acc[h.key] = h.value
-        return acc
-      },
-      {} as Record<string, string>
-    ),
-    body: ['GET', 'HEAD'].includes(method.toUpperCase()) ? undefined : body,
+    headers: getHeaders(headers),
+    body: parsedBody ? JSON.stringify(parsedBody) : undefined,
   })
 
   const contentType = response.headers.get('content-type')
@@ -35,4 +37,22 @@ export async function requestHandler(payload: RequestPayload) {
     headers: Object.fromEntries(response.headers.entries()),
     time,
   }
+}
+
+function getHeaders(headers: { key: string; value: string }[]) {
+  if (!headers.find((header) => header.key === 'Content-Type')) {
+    headers.push({
+      key: 'Content-Type',
+      value: 'application/json',
+    })
+  }
+  const res = headers.reduce(
+    (acc, h) => {
+      if (h.key && h.value != null) acc[h.key] = h.value
+      return acc
+    },
+    {} as Record<string, string>
+  )
+
+  return res
 }

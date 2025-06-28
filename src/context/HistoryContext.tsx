@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import * as localforage from 'localforage'
 import { v4 as uuid } from 'uuid'
-import type { HeaderItem } from '@/components/RequestBuilder/HeaderEditor'
 import type { HTTP_METHODS } from '@/constants/http'
+import type { HeaderItem } from './RequestFormContext'
 
 export interface HistoryRecord {
   id: string
@@ -51,16 +51,18 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({
       timestamp: Date.now(),
     }
 
-    const updated = [newRecord, ...history]
-    setHistory(updated)
-    await localforage.setItem('history', updated)
+    setHistory((prev) => {
+      const updated = [newRecord, ...prev]
+      localforage.setItem('history', updated)
+      return updated
+    })
   }
 
   const clearHistory = async () => {
     setHistory([])
     await localforage.removeItem('history')
   }
-  
+
   const deleteRequest = async (id: string) => {
     const filtered = history.filter((r) => r.id !== id)
     setHistory(filtered)
@@ -68,7 +70,9 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({
   }
 
   return (
-    <HistoryContext.Provider value={{ history, addRequest, clearHistory, deleteRequest }}>
+    <HistoryContext.Provider
+      value={{ history, addRequest, clearHistory, deleteRequest }}
+    >
       {children}
     </HistoryContext.Provider>
   )

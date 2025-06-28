@@ -31,7 +31,7 @@ describe('HistoryContext', () => {
     const { result } = renderHook(() => useHistoryContext(), { wrapper })
 
     await waitFor(() => {
-      expect(result.current.history.length).toBe(0) // Default empty
+      expect(result.current.history.length).toBe(0)
     })
   })
 
@@ -39,7 +39,7 @@ describe('HistoryContext', () => {
     ;(localforage.getItem as any).mockResolvedValueOnce([
       {
         id: '1',
-        method: 'GET',
+        method: HTTP_METHODS.GET,
         url: 'https://yo.com',
         headers: [],
         body: '',
@@ -59,7 +59,7 @@ describe('HistoryContext', () => {
     ;(localforage.getItem as any).mockResolvedValueOnce([
       {
         id: '123',
-        method: 'GET',
+        method: HTTP_METHODS.GET,
         url: 'https://older.com',
         headers: [],
         body: '',
@@ -98,5 +98,60 @@ describe('HistoryContext', () => {
     await waitFor(() => {
       expect(result.current.history).toEqual([])
     })
+  })
+
+  it('deletes a request by ID', async () => {
+    const fakeHistory = [
+      {
+        id: '1',
+        method: HTTP_METHODS.GET,
+        url: 'https://a.com',
+        headers: [],
+        body: '',
+        timestamp: 1,
+      },
+      {
+        id: '2',
+        method: HTTP_METHODS.GET,
+        url: 'https://b.com',
+        headers: [],
+        body: '',
+        timestamp: 2,
+      },
+    ]
+    ;(localforage.getItem as any).mockResolvedValueOnce(fakeHistory)
+
+    const { result } = renderHook(() => useHistoryContext(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.history.length).toBe(2)
+    })
+
+    await act(async () => {
+      await result.current.deleteRequest('1')
+    })
+
+    await waitFor(() => {
+      expect(result.current.history).toHaveLength(1)
+      expect(result.current.history[0].id).toBe('2')
+    })
+  })
+
+  it('throws error if used outside provider', () => {
+    const mockConsole = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    let err
+    try {
+      renderHook(() => useHistoryContext())
+    } catch (e) {
+      err = e
+    }
+
+    expect(err).toBeInstanceOf(Error)
+    expect(err?.message).toBe(
+      'useHistoryContext must be used within HistoryProvider'
+    )
+
+    mockConsole.mockRestore()
   })
 })

@@ -1,0 +1,47 @@
+.theme-transition {
+  transition:
+    background-color 0.6s ease,
+    color 0.6s ease;
+}
+
+.theme-light {
+  --bs-body-bg: #ffffff;
+  --bs-body-color: #111;
+  --bs-navbar-bg: #f8f9fa;
+  --bs-btn-bg: #f31260;
+  --placeholder-color: #666;
+}
+
+.theme-dark {
+  --bs-body-bg: #0d1117;
+  --bs-body-color: #eee;
+  --bs-navbar-bg: #161b22;
+  --bs-btn-bg: #f31260;
+  --placeholder-color: #aaa;
+}
+
+/* Bootstrap overrides */
+body.theme-light,
+body.theme-dark {
+  background-color: var(--bs-body-bg) !important;
+  color: var(--bs-body-color) !important;
+}
+
+.navbar,
+.navbar-light,
+.navbar-dark {
+  background-color: var(--bs-navbar-bg) !important;
+  transition: all 0.4s ease;
+}
+
+.btn-primary {
+  background-color: var(--bs-btn-bg) !important;
+}
+
+::placeholder {
+  color: var(--placeholder-color) !important;
+}
+
+/* body {
+  padding: 4rem;
+} */

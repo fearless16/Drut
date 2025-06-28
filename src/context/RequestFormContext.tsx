@@ -5,9 +5,18 @@ import React, {
   type Dispatch,
   type ReactNode,
 } from 'react'
-import { type Action, reducer, initialState, ActionType } from './reducer/requestFormTypes'
-import type { HeaderItem } from '@/components/RequestBuilder/HeaderEditor'
+import {
+  type Action,
+  reducer,
+  initialState,
+  ActionType,
+} from './reducer/requestFormReducer'
 import type { HTTP_METHODS } from '@/constants/http'
+
+export interface HeaderItem {
+  key: string
+  value: string
+}
 
 export interface RequestFormState {
   method: HTTP_METHODS

@@ -15,8 +15,8 @@
 }
 
 .line {
-  width: 80px;
-  height: 4px;
+  width: 6rem;
+  height: 0.3rem;
   margin: 1rem auto;
   background-color: #f31260;
   border-radius: 2px;
@@ -95,7 +95,7 @@
   }
 }
 .logoWrap {
-  gap: 16px; /* Space between ⚡ and DRUT */
+  gap: 1rem;
   display: flex;
   align-items: baseline;
   justify-content: center;
@@ -104,14 +104,14 @@
 .logo {
   font-size: 5rem;
   font-weight: 900;
-  letter-spacing: 10px;
+  letter-spacing: 0.8rem;
   color: #f31260;
   text-shadow:
-    0 0 5px #f31260,
-    0 0 10px #f31260,
-    0 0 20px #f31260,
-    0 0 40px #ff0055;
-  animation: flicker 3s infinite alternate ease-in-out;
+    0 0 0.2rem #f31260,
+    0 0 0.4rem #f31260,
+    0 0 1.2rem #f31260,
+    0 0 3rem #ff0055;
+  animation: flicker 2.5s infinite alternate ease-in-out;
   font-family: monospace;
 }
 

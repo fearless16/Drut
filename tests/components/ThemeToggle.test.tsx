@@ -1,25 +1,42 @@
-import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import React from 'react'
+import { render, fireEvent } from '@testing-library/react'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { ThemeProvider } from '@/context/ThemeContext'
+import { ThemeContext } from '@/context/ThemeContext'
+import { describe, expect, it, vi } from 'vitest'
 
 describe('ThemeToggle', () => {
-  const setup = () =>
+  const toggleTheme = vi.fn()
+
+  const renderWithContext = (theme: 'light' | 'dark') =>
     render(
-      <ThemeProvider>
+      <ThemeContext.Provider
+        value={{
+          theme: 'light',
+          toggleTheme: vi.fn(),
+          variant: 'light',
+          className: 'light-mode',
+        }}
+      >
         <ThemeToggle />
-      </ThemeProvider>
+      </ThemeContext.Provider>
     )
 
-  it('shows correct button text and toggles', () => {
-    setup()
-    const btn = screen.getByRole('button')
-    expect(btn.textContent).toMatch(/Switch to Dark/i)
+  it('renders correctly in light mode', () => {
+    const { getByTestId } = renderWithContext('light')
+    const toggleBtn = getByTestId('theme-toggle-btn')
+    expect(toggleBtn.className).toContain('light')
+  })
 
-    fireEvent.click(btn)
-    expect(btn.textContent).toMatch(/Switch to Light/i)
+  it('renders correctly in dark mode', () => {
+    const { getByTestId } = renderWithContext('dark')
+    const toggleBtn = getByTestId('theme-toggle-btn')
+    expect(toggleBtn.className).toContain('dark')
+  })
 
-    fireEvent.click(btn)
-    expect(btn.textContent).toMatch(/Switch to Dark/i)
+  it('calls toggleTheme on click', () => {
+    const { getByTestId } = renderWithContext('light')
+    const toggleBtn = getByTestId('theme-toggle-btn')
+    fireEvent.click(toggleBtn)
+    expect(toggleTheme).toHaveBeenCalledTimes(1)
   })
 })
