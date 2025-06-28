@@ -1,3 +1,4 @@
+import { useTheme } from '@/context/ThemeContext'
 import React from 'react'
 import { Button } from 'react-bootstrap'
 
@@ -12,8 +13,13 @@ export const SendButton: React.FC<SendButtonProps> = ({
   loading = false,
   onClick,
 }) => {
+  const { theme } = useTheme()
   return (
-    <Button onClick={onClick} disabled={disabled || loading}>
+    <Button
+      variant={theme === 'dark' ? 'primary' : 'dark'}
+      onClick={onClick}
+      disabled={disabled || loading}
+    >
       {loading ? 'Sending...' : 'Send Request'}
     </Button>
   )

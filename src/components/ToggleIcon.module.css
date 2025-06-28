@@ -1,0 +1,45 @@
+.neuBox {
+  width: 64px;
+  height: 64px;
+  background: var(--bg-color);
+  border-radius: 18px;
+  box-shadow:
+    5px 5px 12px rgba(0, 0, 0, 0.1),
+    -5px -5px 12px rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+}
+
+.icon {
+  width: 44px;
+  height: 44px;
+  color: var(--text-color);
+  transition: color 0.4s ease;
+}
+
+.symbol {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform-origin: center;
+}
+
+.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.hidden {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+}
+
+.dark .symbol {
+  color: var(--text-color);
+}
+
+.light .symbol {
+  color: var(--text-color);
+}

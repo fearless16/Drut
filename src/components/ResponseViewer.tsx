@@ -1,3 +1,4 @@
+import { useTheme } from '@/context/ThemeContext'
 import React from 'react'
 import { Card, Badge } from 'react-bootstrap'
 
@@ -19,6 +20,7 @@ const getStatusVariant = (status: number) => {
 }
 
 export const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
+  const { theme } = useTheme()
   const prettyBody = (() => {
     try {
       return JSON.stringify(response.body, null, 2)
@@ -37,14 +39,12 @@ export const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
           </Badge>
         </div>
         {response.time && (
-          <small className="text-muted">
-            ⏱️ {response.time} ms
-          </small>
+          <small className="text-muted">⏱️ {response.time} ms</small>
         )}
       </Card.Header>
       <Card.Body>
         <pre
-          className="bg-light p-3 rounded overflow-auto"
+          className={`bg-${theme === 'dark' ? 'dark' : 'light'} p-3 rounded overflow-auto`}
           style={{ maxHeight: 300 }}
         >
           {prettyBody}

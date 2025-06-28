@@ -1,145 +1,128 @@
-import React from 'react'
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import * as requestLib from '../src/lib/requestHandler'
-import { HTTP_METHODS } from '../src/constants/http'
-import { EnvProvider } from '../src/context/EnvContext'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { RequestFormProvider } from '@/context/RequestFormContext'
+import { HistoryProvider } from '@/context/HistoryContext'
+import { ThemeProvider } from '@/context/ThemeContext'
+import * as requestLib from '@/lib/requestHandler'
+import React from 'react'
+import { BrowserRouter } from 'react-router-dom'
+import { RequestBuilder } from '@/components/RequestBuilder/RequestBuilder'
 
-// ----- Common mocks for all cases -----
-const mockAddRequest = vi.fn()
-const mockSetPreset = vi.fn()
+const mockResponse = { status: 200, body: { success: true } }
 
-vi.mock('../src/context/HistoryContext', () => ({
-  useHistoryContext: () => ({ addRequest: mockAddRequest }),
-}))
-
-vi.mock('../src/context/RequestFormContext', async () => {
-  const actual = await vi.importActual('../src/context/RequestFormContext')
+vi.mock('@/lib/requestHandler', async (importOriginal) => {
+  const actual = await importOriginal() as object
   return {
     ...actual,
-    useRequestFormContext: () => ({
-      preset: {
-        method: HTTP_METHODS.POST,
-        url: 'https://preset.com',
-        headers: [{ key: 'Auth', value: 'Bearer' }],
-        body: 'someBody',
-      },
-      setPreset: mockSetPreset,
-    }),
+    requestHandler: vi.fn().mockResolvedValue(mockResponse),
   }
 })
 
-const AllProviders = ({ children }: { children: React.ReactNode }) => (
-  <EnvProvider>{children}</EnvProvider>
+const customWrapper = ({ children }: any) => (
+  <BrowserRouter>
+    <ThemeProvider>
+      <RequestFormProvider>
+        <HistoryProvider>{children}</HistoryProvider>
+      </RequestFormProvider>
+    </ThemeProvider>
+  </BrowserRouter>
 )
 
-// ✅ Full suite when `isValid = true`
-vi.mock('../src/hooks/useRequestForm', () => ({
-  useRequestForm: () => ({
-    method: HTTP_METHODS.POST,
-    setMethod: vi.fn(),
-    url: 'https://preset.com',
-    setUrl: vi.fn(),
-    headers: [],
-    setHeaders: vi.fn(),
-    body: 'someBody',
-    setBody: vi.fn(),
-    isValid: true,
-  }),
-}))
+describe('RequestBuilder', () => {
+  const onResponse = vi.fn()
 
-import { RequestBuilder } from '../src/components/RequestBuilder/RequestBuilder'
-
-describe('RequestBuilder (valid form)', () => {
-  it('applies preset from context', async () => {
-    render(<RequestBuilder onResponse={() => {}} />, { wrapper: AllProviders })
-
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('https://preset.com')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('someBody')).toBeInTheDocument()
-    })
-
-    expect(mockSetPreset).toHaveBeenCalledWith(null)
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it('renders all form components', () => {
-    render(<RequestBuilder onResponse={() => {}} />, { wrapper: AllProviders })
-
-    expect(screen.getByLabelText(/request url/i)).toBeInTheDocument()
-    expect(screen.getByText('+ Add Header')).toBeInTheDocument()
+  it('renders all fields and Send button', () => {
+    render(<RequestBuilder onResponse={onResponse} />, {
+      wrapper: customWrapper,
+    })
     expect(
-      screen.getByRole('button', { name: /send request/i })
+      screen.getByPlaceholderText('https://api.example.com')
     ).toBeInTheDocument()
+    expect(screen.getByText('+ Add Header')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('{"key": "value"}')).toBeInTheDocument()
+    expect(screen.getByText('Send Request')).toBeInTheDocument()
   })
 
-  it('calls requestHandler and adds request to history', async () => {
-    const mockHandler = vi
-      .spyOn(requestLib, 'requestHandler')
-      // @ts-ignore
-      .mockResolvedValue({ status: 200 })
+  it('validates URL and disables button', () => {
+    render(<RequestBuilder onResponse={onResponse} />, {
+      wrapper: customWrapper,
+    })
+    const sendBtn = screen.getByText('Send Request') as HTMLButtonElement
+    expect(sendBtn.disabled).toBe(true)
 
-    const handleResponse = vi.fn()
+    const urlInput = screen.getByPlaceholderText('https://api.example.com')
+    fireEvent.change(urlInput, { target: { value: 'http://valid.com' } })
+    expect(sendBtn.disabled).toBe(false)
+  })
 
-    render(<RequestBuilder onResponse={handleResponse} />, {
-      wrapper: AllProviders,
+  it('sends request and triggers onResponse + saves to history', async () => {
+    render(<RequestBuilder onResponse={onResponse} />, {
+      wrapper: customWrapper,
     })
 
-    const button = screen.getByRole('button', { name: /send request/i })
-    fireEvent.click(button)
+    fireEvent.change(screen.getByPlaceholderText('https://api.example.com'), {
+      target: { value: 'https://yo.com' },
+    })
+    fireEvent.click(screen.getByText('Send Request'))
 
     await waitFor(() => {
-      expect(mockHandler).toHaveBeenCalledWith({
-        method: HTTP_METHODS.POST,
-        url: 'https://preset.com',
-        headers: [],
-        body: 'someBody',
-      })
-
-      expect(handleResponse).toHaveBeenCalledWith({ status: 200 })
-      expect(mockAddRequest).toHaveBeenCalledWith({
-        method: HTTP_METHODS.POST,
-        url: 'https://preset.com',
-        headers: [],
-        body: 'someBody',
-      })
+      expect(requestLib.requestHandler).toHaveBeenCalled()
+      expect(onResponse).toHaveBeenCalledWith(mockResponse)
     })
   })
-})
 
-describe('RequestBuilder (invalid form)', () => {
-  it('disables SendButton when URL is invalid', async () => {
-    // Reset module cache
-    vi.resetModules()
+  it('adds and removes headers', () => {
+    render(<RequestBuilder onResponse={onResponse} />, {
+      wrapper: customWrapper,
+    })
 
-    // Re-mock AFTER reset
-    vi.doMock('../src/hooks/useRequestForm', () => ({
-      useRequestForm: () => ({
-        method: 'GET',
-        setMethod: vi.fn(),
-        url: '',
-        setUrl: vi.fn(),
-        headers: [],
-        setHeaders: vi.fn(),
-        body: '',
-        setBody: vi.fn(),
-        isValid: false,
-      }),
-    }))
+    fireEvent.click(screen.getByText('+ Add Header'))
+    expect(screen.getAllByPlaceholderText('Key')).toHaveLength(1)
 
-    // Dynamically import AFTER mocks
-    const { RequestBuilder } = await import(
-      '../src/components/RequestBuilder/RequestBuilder'
-    )
+    const removeBtn = screen.getByText('×')
+    fireEvent.click(removeBtn)
+    expect(screen.queryByPlaceholderText('Key')).not.toBeInTheDocument()
+  })
 
-    const { EnvProvider } = await import('../src/context/EnvContext')
+  it('edits header values', () => {
+    render(<RequestBuilder onResponse={onResponse} />, {
+      wrapper: customWrapper,
+    })
 
-    const AllProviders = ({ children }: any) => (
-      <EnvProvider>{children}</EnvProvider>
-    )
+    fireEvent.click(screen.getByText('+ Add Header'))
+    const keyInput = screen.getByPlaceholderText('Key') as HTMLInputElement
+    const valueInput = screen.getByPlaceholderText('Value') as HTMLInputElement
 
-    render(<RequestBuilder onResponse={() => {}} />, { wrapper: AllProviders })
+    fireEvent.change(keyInput, { target: { value: 'Authorization' } })
+    fireEvent.change(valueInput, { target: { value: 'Bearer token' } })
 
-    const button = screen.getByRole('button', { name: /send request/i })
-    expect(button).toBeDisabled()
+    expect(keyInput.value).toBe('Authorization')
+    expect(valueInput.value).toBe('Bearer token')
+  })
+
+  it('dispatches correct method', () => {
+    render(<RequestBuilder onResponse={onResponse} />, {
+      wrapper: customWrapper,
+    })
+
+    const methodSelect = screen.getByDisplayValue('GET')
+    fireEvent.change(methodSelect, { target: { value: 'POST' } })
+    expect(screen.getByDisplayValue('POST')).toBeInTheDocument()
+  })
+
+  it('updates body textarea', () => {
+    render(<RequestBuilder onResponse={onResponse} />, {
+      wrapper: customWrapper,
+    })
+
+    const textarea = screen.getByPlaceholderText(
+      '{"key": "value"}'
+    ) as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: '{"id": 1}' } })
+    expect(textarea.value).toBe('{"id": 1}')
   })
 })

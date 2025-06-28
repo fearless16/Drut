@@ -1,42 +1,55 @@
+import localforage from 'localforage'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 type Theme = 'light' | 'dark'
 
-enum ThemeType {
-  LIGHT = 'light',
-  DARK = 'dark'
-}
-
 interface ThemeContextType {
   theme: Theme
   toggleTheme: () => void
-  isDark: boolean
+  variant: Theme
+  className: string
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
+export const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 const THEME_KEY = 'drut_theme'
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const stored = localStorage.getItem(THEME_KEY) as Theme
-    return stored === ThemeType.DARK ? ThemeType.DARK : ThemeType.LIGHT
-  })
+  const [theme, setTheme] = useState<Theme>('dark')
 
   useEffect(() => {
-    document.body.classList.remove(ThemeType.LIGHT, ThemeType.DARK)
-    document.body.classList.add(theme)
-    localStorage.setItem(THEME_KEY, theme)
+    const init = async () => {
+      const stored = (await localforage.getItem<string>(THEME_KEY)) as Theme
+      const system = window.matchMedia('(prefers-color-scheme: dark)').matches
+      const resolved = stored || (system ? 'dark' : 'light')
+
+      setTheme(resolved)
+      document.body.classList.add('theme-transition')
+      document.body.classList.add(`theme-${resolved}`)
+    }
+
+    init()
+  }, [])
+
+  useEffect(() => {
+    document.body.classList.remove('theme-light', 'theme-dark')
+    document.body.classList.add(`theme-${theme}`)
+    localforage.setItem(THEME_KEY, theme)
   }, [theme])
 
   const toggleTheme = () =>
-    setTheme((prev) => (prev === ThemeType.LIGHT ? ThemeType.DARK : ThemeType.LIGHT))
-
-  const isDark = theme === ThemeType.DARK
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, isDark }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        toggleTheme,
+        variant: theme,
+        className: `theme-${theme}`,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   )
