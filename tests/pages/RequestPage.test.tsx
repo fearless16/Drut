@@ -1,46 +1,40 @@
+import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
 import { RequestPage } from '@/pages/RequestPage'
-import { MemoryRouter } from 'react-router-dom'
-import { ThemeProvider } from '@/context/ThemeContext'
-import { HistoryProvider } from '@/context/HistoryContext'
+import { vi, describe, it, expect } from 'vitest'
 
-const AllProviders = ({ children }: { children: React.ReactNode }) => (
-  <MemoryRouter>
-    <ThemeProvider>
-      <HistoryProvider>{children}</HistoryProvider>
-    </ThemeProvider>
-  </MemoryRouter>
-)
+// ---- Mocks ----
+vi.mock('@/components/RequestBuilder/RequestBuilder', () => ({
+  RequestBuilder: ({ onResponse }: { onResponse: (data: any) => void }) => (
+    <button onClick={() => onResponse({ status: 200, data: 'mock data' })}>
+      Send Request
+    </button>
+  ),
+}))
 
-const renderWithProviders = (ui: React.ReactElement) =>
-  render(<AllProviders>{ui}</AllProviders>)
+vi.mock('@/components/ResponseViewer', () => ({
+  ResponseViewer: ({ response }: { response: any }) => (
+    <div>Response: {response.data}</div>
+  ),
+}))
 
+// ---- Tests ----
 describe('RequestPage', () => {
-  it('renders page heading', () => {
-    renderWithProviders(<RequestPage />)
-    expect(screen.getByText(/new api request/i)).toBeInTheDocument()
-  })
+  it('renders heading and Send Request button', () => {
+    render(<RequestPage />)
 
-  it('renders RequestBuilder component', () => {
-    renderWithProviders(<RequestPage />)
-    expect(screen.getByTestId('request-builder')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /new api request/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /send request/i })).toBeInTheDocument()
   })
 
   it('does not show ResponseViewer initially', () => {
-    renderWithProviders(<RequestPage />)
-    expect(screen.queryByTestId('response-viewer')).not.toBeInTheDocument()
+    render(<RequestPage />)
+    expect(screen.queryByText(/response:/i)).not.toBeInTheDocument()
   })
 
-  it('shows ResponseViewer when response is set', () => {
-    renderWithProviders(<RequestPage />)
-    const button = screen.getByRole('button', { name: /send request/i })
-
-    // You can mock sendRequest to force setting response state
-    fireEvent.click(button)
-
-    // Now check if ResponseViewer appears
-    // (make sure ResponseViewer has data-testid set too!)
-    expect(screen.getByTestId('response-viewer')).toBeInTheDocument()
+  it('shows ResponseViewer after request is sent', () => {
+    render(<RequestPage />)
+    fireEvent.click(screen.getByText(/send request/i))
+    expect(screen.getByText(/response: mock data/i)).toBeInTheDocument()
   })
 })

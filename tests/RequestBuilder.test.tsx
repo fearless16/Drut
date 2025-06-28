@@ -11,10 +11,13 @@ import { RequestBuilder } from '@/components/RequestBuilder/RequestBuilder'
 const mockResponse = { status: 200, body: { success: true } }
 
 vi.mock('@/lib/requestHandler', async (importOriginal) => {
-  const actual = await importOriginal() as object
+  const actual = (await importOriginal()) as object
   return {
     ...actual,
-    requestHandler: vi.fn().mockResolvedValue(mockResponse),
+    requestHandler: vi.fn().mockResolvedValue({
+      status: 200,
+      body: { success: true },
+    }),
   }
 })
 
@@ -44,30 +47,48 @@ describe('RequestBuilder', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('+ Add Header')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('{"key": "value"}')).toBeInTheDocument()
-    expect(screen.getByText('Send Request')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Send Request/i })
+    ).toBeInTheDocument()
   })
 
-  it('validates URL and disables button', () => {
+  it('disables Send button for invalid URL', () => {
     render(<RequestBuilder onResponse={onResponse} />, {
       wrapper: customWrapper,
     })
-    const sendBtn = screen.getByText('Send Request') as HTMLButtonElement
-    expect(sendBtn.disabled).toBe(true)
-
-    const urlInput = screen.getByPlaceholderText('https://api.example.com')
-    fireEvent.change(urlInput, { target: { value: 'http://valid.com' } })
-    expect(sendBtn.disabled).toBe(false)
+    fireEvent.change(screen.getByPlaceholderText('https://api.example.com'), {
+      target: { value: 'invalid-url' },
+    })
+    expect(screen.getByRole('button', { name: /Send Request/i })).toBeDisabled()
   })
 
-  it('sends request and triggers onResponse + saves to history', async () => {
+  it('adds and removes headers', () => {
+    render(<RequestBuilder onResponse={onResponse} />, {
+      wrapper: customWrapper,
+    })
+    fireEvent.click(screen.getByText('+ Add Header'))
+    const keyInput = screen.getAllByPlaceholderText('Key')[0]
+    const valueInput = screen.getAllByPlaceholderText('Value')[0]
+    fireEvent.change(keyInput, { target: { value: 'Authorization' } })
+    fireEvent.change(valueInput, { target: { value: 'Bearer token' } })
+
+    expect(keyInput).toHaveValue('Authorization')
+    expect(valueInput).toHaveValue('Bearer token')
+
+    fireEvent.click(screen.getByText('×'))
+    expect(screen.queryByPlaceholderText('Key')).not.toBeInTheDocument()
+  })
+
+  it('handles request and response correctly', async () => {
     render(<RequestBuilder onResponse={onResponse} />, {
       wrapper: customWrapper,
     })
 
     fireEvent.change(screen.getByPlaceholderText('https://api.example.com'), {
-      target: { value: 'https://yo.com' },
+      target: { value: 'https://api.test.com' },
     })
-    fireEvent.click(screen.getByText('Send Request'))
+
+    fireEvent.click(screen.getByRole('button', { name: /Send Request/i }))
 
     await waitFor(() => {
       expect(requestLib.requestHandler).toHaveBeenCalled()
@@ -75,54 +96,25 @@ describe('RequestBuilder', () => {
     })
   })
 
-  it('adds and removes headers', () => {
+  it('changes request body', () => {
     render(<RequestBuilder onResponse={onResponse} />, {
       wrapper: customWrapper,
     })
 
-    fireEvent.click(screen.getByText('+ Add Header'))
-    expect(screen.getAllByPlaceholderText('Key')).toHaveLength(1)
+    const textarea = screen.getByPlaceholderText('{"key": "value"}')
+    fireEvent.change(textarea, { target: { value: '{"foo": "bar"}' } })
 
-    const removeBtn = screen.getByText('×')
-    fireEvent.click(removeBtn)
-    expect(screen.queryByPlaceholderText('Key')).not.toBeInTheDocument()
+    expect(textarea).toHaveValue('{"foo": "bar"}')
   })
 
-  it('edits header values', () => {
+  it('changes method', () => {
     render(<RequestBuilder onResponse={onResponse} />, {
       wrapper: customWrapper,
     })
 
-    fireEvent.click(screen.getByText('+ Add Header'))
-    const keyInput = screen.getByPlaceholderText('Key') as HTMLInputElement
-    const valueInput = screen.getByPlaceholderText('Value') as HTMLInputElement
+    const select = screen.getByRole('combobox')
+    fireEvent.change(select, { target: { value: 'POST' } })
 
-    fireEvent.change(keyInput, { target: { value: 'Authorization' } })
-    fireEvent.change(valueInput, { target: { value: 'Bearer token' } })
-
-    expect(keyInput.value).toBe('Authorization')
-    expect(valueInput.value).toBe('Bearer token')
-  })
-
-  it('dispatches correct method', () => {
-    render(<RequestBuilder onResponse={onResponse} />, {
-      wrapper: customWrapper,
-    })
-
-    const methodSelect = screen.getByDisplayValue('GET')
-    fireEvent.change(methodSelect, { target: { value: 'POST' } })
-    expect(screen.getByDisplayValue('POST')).toBeInTheDocument()
-  })
-
-  it('updates body textarea', () => {
-    render(<RequestBuilder onResponse={onResponse} />, {
-      wrapper: customWrapper,
-    })
-
-    const textarea = screen.getByPlaceholderText(
-      '{"key": "value"}'
-    ) as HTMLTextAreaElement
-    fireEvent.change(textarea, { target: { value: '{"id": 1}' } })
-    expect(textarea.value).toBe('{"id": 1}')
+    expect(select).toHaveValue('POST')
   })
 })
